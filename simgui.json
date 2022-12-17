@@ -1,0 +1,299 @@
+{
+  "HALProvider": {
+    "Addressable LEDs": {
+      "0": {
+        "columns": 11
+      }
+    },
+    "Analog Inputs": {
+      "window": {
+        "visible": true
+      }
+    },
+    "Other Devices": {
+      "AnalogGyro[0]": {
+        "header": {
+          "open": true
+        }
+      },
+      "foo": {
+        "header": {
+          "open": true
+        }
+      }
+    },
+    "PWM Outputs": {
+      "window": {
+        "visible": true
+      }
+    }
+  },
+  "NTProvider": {
+    "types": {
+      "/FMSInfo": "FMSInfo",
+      "/LiveWindow/Ungrouped/AnalogGyro[0]": "Gyro",
+      "/LiveWindow/Ungrouped/PIDController[1]": "PIDController",
+      "/LiveWindow/Ungrouped/PIDController[2]": "PIDController",
+      "/LiveWindow/Ungrouped/PIDController[3]": "PIDController",
+      "/LiveWindow/Ungrouped/PIDController[4]": "PIDController",
+      "/LiveWindow/Ungrouped/PIDController[5]": "PIDController",
+      "/LiveWindow/Ungrouped/PIDController[6]": "PIDController",
+      "/LiveWindow/Ungrouped/PIDController[7]": "PIDController",
+      "/LiveWindow/Ungrouped/PIDController[8]": "PIDController",
+      "/LiveWindow/Ungrouped/PWMSparkMax[1]": "Motor Controller",
+      "/LiveWindow/Ungrouped/PWMSparkMax[2]": "Motor Controller",
+      "/LiveWindow/Ungrouped/PWMSparkMax[3]": "Motor Controller",
+      "/LiveWindow/Ungrouped/PWMSparkMax[4]": "Motor Controller",
+      "/LiveWindow/Ungrouped/PWMSparkMax[5]": "Motor Controller",
+      "/LiveWindow/Ungrouped/PWMSparkMax[6]": "Motor Controller",
+      "/LiveWindow/Ungrouped/PWMSparkMax[7]": "Motor Controller",
+      "/LiveWindow/Ungrouped/PWMSparkMax[8]": "Motor Controller",
+      "/SmartDashboard/Field": "Field2d",
+      "/blarb": "Field2d",
+      "/field": "Field2d"
+    },
+    "windows": {
+      "/field": {
+        "window": {
+          "visible": true
+        }
+      }
+    }
+  },
+  "NetworkTables": {
+    "transitory": {
+      "BackLeft": {
+        "open": true
+      },
+      "BackRight": {
+        "open": true
+      },
+      "FrontLeft": {
+        "open": true
+      },
+      "FrontRight": {
+        "open": true
+      },
+      "SmartDashboard": {
+        "Field": {
+          "open": true
+        },
+        "open": true
+      },
+      "bloorg": {
+        "open": true
+      },
+      "desired": {
+        "open": true
+      },
+      "desiredV": {
+        "BackLeft": {
+          "drive": {
+            "open": true
+          },
+          "open": true,
+          "turn": {
+            "open": true
+          }
+        },
+        "BackRight": {
+          "drive": {
+            "open": true
+          },
+          "turn": {
+            "open": true
+          }
+        },
+        "FrontLeft": {
+          "turn": {
+            "open": true
+          }
+        },
+        "FrontRight": {
+          "turn": {
+            "open": true
+          }
+        },
+        "open": true
+      },
+      "encoder": {
+        "BackLeft": {
+          "drive": {
+            "open": true
+          },
+          "turn": {
+            "open": true
+          }
+        },
+        "BackRight": {
+          "drive": {
+            "open": true
+          },
+          "turn": {
+            "open": true
+          }
+        },
+        "FrontLeft": {
+          "open": true,
+          "turn": {
+            "open": true
+          }
+        },
+        "open": true
+      },
+      "encoderBackLeft": {
+        "drive": {
+          "open": true
+        },
+        "turn": {
+          "open": true
+        }
+      },
+      "encoderBackRight": {
+        "open": true
+      },
+      "field": {
+        "open": true
+      },
+      "pwm": {
+        "BackLeft": {
+          "drive": {
+            "open": true
+          },
+          "turn": {
+            "open": true
+          }
+        },
+        "FrontLeft": {
+          "open": true,
+          "turn": {
+            "open": true
+          }
+        },
+        "open": true
+      }
+    }
+  },
+  "NetworkTables Info": {
+    "Connections": {
+      "open": true
+    },
+    "Server": {
+      "open": true
+    }
+  },
+  "Plot": {
+    "Plot <0>": {
+      "plots": [
+        {
+          "axis": [
+            {
+              "autoFit": true
+            }
+          ],
+          "height": 313,
+          "series": [
+            {
+              "color": [
+                0.2980392277240753,
+                0.44705885648727417,
+                0.6901960968971252,
+                1.0
+              ],
+              "id": "NT:/BackLeft/turnEncoderDistanceRad"
+            },
+            {
+              "color": [
+                0.8666667342185974,
+                0.5176470875740051,
+                0.32156863808631897,
+                1.0
+              ],
+              "id": "NT:/BackRight/turnEncoderDistanceRad"
+            },
+            {
+              "color": [
+                0.3333333432674408,
+                0.658823549747467,
+                0.4078431725502014,
+                1.0
+              ],
+              "id": "NT:/FrontLeft/turnEncoderDistanceRad"
+            },
+            {
+              "color": [
+                0.7686275243759155,
+                0.30588236451148987,
+                0.32156863808631897,
+                1.0
+              ],
+              "id": "NT:/FrontRight/turnEncoderDistanceRad"
+            }
+          ]
+        }
+      ]
+    },
+    "Plot <1>": {
+      "plots": [
+        {
+          "axis": [
+            {
+              "autoFit": true
+            }
+          ],
+          "height": 338,
+          "series": [
+            {
+              "color": [
+                0.2980392277240753,
+                0.44705885648727417,
+                0.6901960968971252,
+                1.0
+              ],
+              "id": "NT:/BackLeft/driveEncoderRateM_s"
+            },
+            {
+              "color": [
+                0.8666667342185974,
+                0.5176470875740051,
+                0.32156863808631897,
+                1.0
+              ],
+              "id": "NT:/BackRight/driveEncoderRateM_s"
+            },
+            {
+              "color": [
+                0.3333333432674408,
+                0.658823549747467,
+                0.4078431725502014,
+                1.0
+              ],
+              "id": "NT:/FrontLeft/driveEncoderRateM_s"
+            },
+            {
+              "color": [
+                0.7686275243759155,
+                0.30588236451148987,
+                0.32156863808631897,
+                1.0
+              ],
+              "id": "NT:/FrontRight/driveEncoderRateM_s"
+            }
+          ]
+        }
+      ]
+    },
+    "Plot <2>": {
+      "plots": [
+        {
+          "axis": [
+            {
+              "autoFit": true
+            }
+          ],
+          "height": 338
+        }
+      ]
+    }
+  }
+}
