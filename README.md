@@ -10,8 +10,6 @@ mode also works, making a sort of circle in the middle of the field.
 
 Caveats:
 
-* There's something wrong with the pose estimator, such that it wiggles when you suddenly change direction; I'm not sure what the problem is.
-
 * There's also something wrong with the rotational control in autonomous: it oscillates; maybe the encoder is backwards or something.
 
 I'll try to fix the issues, hopefully by Christmas.
