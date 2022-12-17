@@ -62,10 +62,25 @@
   },
   "NetworkTables": {
     "transitory": {
+      "LiveWindow": {
+        "open": true
+      },
+      "Shuffleboard": {
+        "open": true
+      },
       "SmartDashboard": {
         "Field": {
           "open": true
         },
+        "open": true,
+        "rotation controler": {
+          "open": true
+        },
+        "rotation controller": {
+          "open": true
+        }
+      },
+      "actual": {
         "open": true
       },
       "bloorg": {
@@ -158,6 +173,9 @@
             "open": true
           }
         },
+        "open": true
+      },
+      "robot": {
         "open": true
       }
     }

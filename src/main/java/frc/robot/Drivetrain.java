@@ -29,7 +29,6 @@ import edu.wpi.first.wpilibj.AnalogGyro;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.simulation.AnalogGyroSim;
 import edu.wpi.first.wpilibj.simulation.CallbackStore;
-import edu.wpi.first.wpilibj.simulation.PWMSim;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
 /** Represents a swerve drive style drivetrain. */
@@ -50,6 +49,8 @@ public class Drivetrain extends SubsystemBase {
   private final SwerveModule m_backRight = new SwerveModule("BackRight", 7, 8, 12, 13, 14, 15);
 
   private final AnalogGyro m_gyro = new AnalogGyro(0);
+  // TODO: gyro is NED, robot is NWU, need to invert somewhere.
+  private final AnalogGyroSim gyroSim = new AnalogGyroSim(m_gyro);
 
   final SwerveDriveKinematics m_kinematics = new SwerveDriveKinematics(
       m_frontLeftLocation, m_frontRightLocation, m_backLeftLocation, m_backRightLocation);
@@ -66,7 +67,7 @@ public class Drivetrain extends SubsystemBase {
       Nat.N7(),
       Nat.N7(),
       Nat.N5(),
-      m_gyro.getRotation2d(),
+      m_gyro.getRotation2d(), // NWU
       new SwerveModulePosition[] {
           m_frontLeft.getPosition(),
           m_frontRight.getPosition(),
@@ -85,13 +86,14 @@ public class Drivetrain extends SubsystemBase {
   DoublePublisher ySpeedPubM_s = inst.getTable("desired").getDoubleTopic("yspeed m_s").publish();
   DoublePublisher thetaSpeedPubRad_s = inst.getTable("desired").getDoubleTopic("thetaspeed rad_s").publish();
 
+  DoublePublisher actualXSpeedPubM_s = inst.getTable("actual").getDoubleTopic("xspeed m_s").publish();
+  DoublePublisher actualYSpeedPubM_s = inst.getTable("actual").getDoubleTopic("yspeed m_s").publish();
+  DoublePublisher actualThetaSpeedPubRad_s = inst.getTable("actual").getDoubleTopic("thetaspeed rad_s").publish();
+
   DoubleArrayPublisher fieldPub;
   StringPublisher fieldTypePub;
 
   List<CallbackStore> cbs = new ArrayList<CallbackStore>();
-
-  // TODO: gyro is NED, robot is NWU, need to invert somewhere.
-  AnalogGyroSim gyroSim = new AnalogGyroSim(0);
 
   public Drivetrain() {
     m_gyro.reset();
@@ -107,20 +109,21 @@ public class Drivetrain extends SubsystemBase {
   }
 
   public void resetOdometry(Pose2d pose) {
-    m_poseEstimator.resetPosition(m_gyro.getRotation2d(), new SwerveModulePosition[] {
-        m_frontLeft.getPosition(),
-        m_frontRight.getPosition(),
-        m_backLeft.getPosition(),
-        m_backRight.getPosition()
-    }, pose);
+    m_poseEstimator.resetPosition(m_gyro.getRotation2d(), // NWU
+        new SwerveModulePosition[] {
+            m_frontLeft.getPosition(),
+            m_frontRight.getPosition(),
+            m_backLeft.getPosition(),
+            m_backRight.getPosition()
+        }, pose);
   }
 
   /**
    * Method to drive the robot using joystick info.
    *
-   * @param xSpeedM_s        Speed of the robot in the x direction (forward).
-   * @param ySpeedM_s        Speed of the robot in the y direction (sideways).
-   * @param rotRad_s           Angular rate of the robot.
+   * @param xSpeedM_s     Speed of the robot in the x direction (forward).
+   * @param ySpeedM_s     Speed of the robot in the y direction (sideways).
+   * @param rotRad_s      Angular rate of the robot.
    * @param fieldRelative Whether the provided x and y speeds are relative to the
    *                      field.
    */
@@ -131,7 +134,10 @@ public class Drivetrain extends SubsystemBase {
 
     SwerveModuleState[] swerveModuleStates = m_kinematics.toSwerveModuleStates(
         fieldRelative
-            ? ChassisSpeeds.fromFieldRelativeSpeeds(xSpeedM_s, ySpeedM_s, rotRad_s, m_gyro.getRotation2d())
+            ? ChassisSpeeds.fromFieldRelativeSpeeds(
+                xSpeedM_s, ySpeedM_s, rotRad_s,
+                m_gyro.getRotation2d() // NWU
+            )
             : new ChassisSpeeds(xSpeedM_s, ySpeedM_s, rotRad_s));
 
     setModuleStates(swerveModuleStates);
@@ -158,14 +164,15 @@ public class Drivetrain extends SubsystemBase {
    * @param turn  desired rotation rad
    */
   public void test(double drive, double turn) {
-    m_frontLeft.setDesiredState(new SwerveModuleState(drive, new Rotation2d(turn)));
+    m_frontLeft.setDesiredState(new SwerveModuleState(drive, new Rotation2d(turn) // NWU
+    ));
   }
 
   /** Updates the field relative position of the robot. */
   public void updateOdometry() {
 
     m_poseEstimator.update(
-        m_gyro.getRotation2d(),
+        m_gyro.getRotation2d(), // NWU
         new SwerveModuleState[] {
             m_frontLeft.getState(),
             m_frontRight.getState(),
@@ -220,15 +227,21 @@ public class Drivetrain extends SubsystemBase {
     ChassisSpeeds speeds = m_kinematics.toChassisSpeeds(states);
 
     // finally adjust the simulator gyro.
+    // note chassisSpeeds.omegaRadiansPerSecond is NED.
     Pose2d newPose = new Pose2d(robotPose.getX() + speeds.vxMetersPerSecond * dtS,
         robotPose.getY() + speeds.vyMetersPerSecond * dtS,
-        robotPose.getRotation().plus(new Rotation2d(speeds.omegaRadiansPerSecond * dtS)));
+        robotPose.getRotation().plus(new Rotation2d(-1.0 * speeds.omegaRadiansPerSecond * dtS)));
     robotPose = newPose;
-    gyroSim.setAngle(robotPose.getRotation().getRadians());
+    // note that the "angle" in a gyro is NED, but everything else (e.g robot pose) is NWU, so invert here.
+    gyroSim.setAngle(-1.0 * robotPose.getRotation().getRadians());
 
     // cheat, tell the pose estimator to use this pose.
     // doesn't seem to do much.
     // m_poseEstimator.addVisionMeasurement(robotPose, Timer.getFPGATimestamp());
+
+    xSpeedPubM_s.set(speeds.vxMetersPerSecond);
+    ySpeedPubM_s.set(speeds.vyMetersPerSecond);
+    thetaSpeedPubRad_s.set(-1.0 * speeds.omegaRadiansPerSecond);
 
     fieldPub.set(new double[] {
         newPose.getX(),

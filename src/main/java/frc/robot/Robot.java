@@ -16,8 +16,12 @@ import edu.wpi.first.math.trajectory.Trajectory;
 import edu.wpi.first.math.trajectory.TrajectoryConfig;
 import edu.wpi.first.math.trajectory.TrajectoryGenerator;
 import edu.wpi.first.math.trajectory.TrapezoidProfile;
+import edu.wpi.first.networktables.DoublePublisher;
+import edu.wpi.first.networktables.NetworkTable;
+import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.XboxController;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.SwerveControllerCommand;
@@ -38,9 +42,24 @@ public class Robot extends TimedRobot {
 
     // System.out.printf("scheduled %s\n", autoc.isScheduled()?"yes":"no");
 
+    m_rotationPositionError.set(m_rotationController.getPositionError());
+    m_rotationVelocityError.set(m_rotationController.getVelocityError());
+    m_rotationSetpointPosition.set(m_rotationController.getSetpoint().position);
+    m_rotationSetpointVelocity.set(m_rotationController.getSetpoint().velocity);
+
+
   }
 
   Command autoc;
+  ProfiledPIDController m_rotationController;
+  private final NetworkTableInstance inst = NetworkTableInstance.getDefault();
+  private final NetworkTable m_table = inst.getTable("robot");
+  private final  DoublePublisher m_rotationSetpointPosition = m_table.getDoubleTopic("rotationSetpointPosition").publish();
+  private final  DoublePublisher m_rotationSetpointVelocity = m_table.getDoubleTopic("rotationSetpointVelocity").publish();
+
+  private final  DoublePublisher m_rotationPositionError = m_table.getDoubleTopic("rotationPositionError").publish();
+  private final  DoublePublisher m_rotationVelocityError = m_table.getDoubleTopic("rotationVelocityError").publish();
+
 
   public void autonomousInit() {
     autoc = auto();
@@ -52,24 +71,81 @@ public class Robot extends TimedRobot {
       autoc.cancel();
   }
 
+
+  /**
+   * make a zigzag path, imagine these were task stations
+   */
   public Command auto() {
-    TrajectoryConfig config = new TrajectoryConfig(1, 1).setKinematics(m_swerve.m_kinematics);
-    // make a square, kinda
-    Trajectory e = TrajectoryGenerator.generateTrajectory(
+    // because we're moving and turning at the same time, max speed needs to be less than actual max
+    // to make room for the turning speed
+    TrajectoryConfig translationConfig = new TrajectoryConfig(0.5 * Drivetrain.kMaxSpeed, 8.0 * Drivetrain.kMaxSpeed)
+        .setKinematics(m_swerve.m_kinematics);
+    // starts in the corner, make an S to target 0
+    Trajectory target0 = TrajectoryGenerator.generateTrajectory(
         new Pose2d(0, 0, new Rotation2d(0)),
-        List.of(new Translation2d(6, 6), // first go to the upper left
-            new Translation2d(10, 6), // then upper right
-            new Translation2d(10, 2), // lower right
-            new Translation2d(6, 2) // lower left
-        ),
-        new Pose2d(6, 6, new Rotation2d(0)),  // works with no rotation.  rotation is not working well.
-         config);
-    ProfiledPIDController c = new ProfiledPIDController(0.1, 0, 0, new TrapezoidProfile.Constraints(1, 2));
-    SwerveControllerCommand s = new SwerveControllerCommand(e, m_swerve::getPose, m_swerve.m_kinematics,
-        new PIDController(0.1, 0, 0), new PIDController(0.1, 0, 0), c, m_swerve::setModuleStates, m_swerve);
-    System.out.printf("trajectory %s\n", e);
-    m_swerve.resetOdometry(e.getInitialPose());
-    return s.andThen(() -> m_swerve.drive(0, 0, 0, true));
+        List.of(
+            new Translation2d(1, 2),
+            new Translation2d(4, 6)),
+        new Pose2d(4, 7, new Rotation2d(0.5 * Math.PI)), translationConfig);
+
+    // make an S to target 1
+    Trajectory target1 = TrajectoryGenerator.generateTrajectory(
+        new Pose2d(4, 7, new Rotation2d(0)),
+        List.of(
+            new Translation2d(4, 6),
+            new Translation2d(8, 2)),
+        new Pose2d(8, 1, new Rotation2d( Math.PI)),
+        translationConfig);
+
+    // make an S to target 2
+    Trajectory target2 = TrajectoryGenerator.generateTrajectory(
+        new Pose2d(8, 1, new Rotation2d(0)),
+        List.of(
+            new Translation2d(7, 2),
+            new Translation2d(12, 6)),
+        new Pose2d(12, 7, new Rotation2d(0.5 * Math.PI)),
+        translationConfig);
+
+    // make an S to target 3
+    Trajectory target3 = TrajectoryGenerator.generateTrajectory(
+        new Pose2d(12, 7, new Rotation2d(0)),
+        List.of(
+            new Translation2d(12, 6),
+            new Translation2d(15, 2)),
+        new Pose2d(15, 1, new Rotation2d(-0.5 * Math.PI)),
+        translationConfig);
+
+    // because the controller only looks at rotation at the start and at the end,
+    // you can't just concatenate the trajectories, you have to run separate
+    // commands.
+    // TODO: make a trajectory-like thing that includes rotation; a few other teams
+    // have done so.
+
+    PIDController xController = new PIDController(0.5, 0, 0);
+    PIDController yController = new PIDController(0.5, 0, 0);
+    TrapezoidProfile.Constraints rotationConstraints = new TrapezoidProfile.Constraints(
+        1.0 * Drivetrain.kMaxAngularSpeed, 8.0 * Drivetrain.kMaxAngularSpeed);
+    m_rotationController = new ProfiledPIDController(0.3, 0, 0, rotationConstraints);
+    SmartDashboard.putData("rotation controler", m_rotationController);
+
+    m_swerve.resetOdometry(target0.getInitialPose()); // TODO: remove this?
+
+    SwerveControllerCommand swerveControllerCommand0 = new SwerveControllerCommand(target0,
+        m_swerve::getPose, m_swerve.m_kinematics, xController, yController, m_rotationController,
+        m_swerve::setModuleStates, m_swerve);
+    SwerveControllerCommand swerveControllerCommand1 = new SwerveControllerCommand(target1,
+        m_swerve::getPose, m_swerve.m_kinematics, xController, yController, m_rotationController,
+        m_swerve::setModuleStates, m_swerve);
+    SwerveControllerCommand swerveControllerCommand2 = new SwerveControllerCommand(target2,
+        m_swerve::getPose, m_swerve.m_kinematics, xController, yController, m_rotationController,
+        m_swerve::setModuleStates, m_swerve);
+    SwerveControllerCommand swerveControllerCommand3 = new SwerveControllerCommand(target3,
+        m_swerve::getPose, m_swerve.m_kinematics, xController, yController, m_rotationController,
+        m_swerve::setModuleStates, m_swerve);
+
+    // run the sequence and stop at the end.
+    return swerveControllerCommand0.andThen(swerveControllerCommand1).andThen(swerveControllerCommand2)
+        .andThen(swerveControllerCommand3).andThen(() -> m_swerve.drive(0, 0, 0, true));
   }
 
   @Override

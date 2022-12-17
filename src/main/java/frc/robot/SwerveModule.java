@@ -40,7 +40,7 @@ public class SwerveModule {
   private final PWMMotorController m_turningMotor;
 
   private final Encoder m_driveEncoder;
-  private final Encoder m_turningEncoder;
+  private final Encoder m_turningEncoder; // NWU
 
   // Gains are for example purposes only - must be determined for your own robot!
   private final PIDController m_drivePIDController = new PIDController(0.1, 0, 0);
@@ -58,32 +58,32 @@ public class SwerveModule {
   private final SimpleMotorFeedforward m_turnFeedforward = new SimpleMotorFeedforward(TURN_KS, TURN_KV);
 
   // ######## network tables ########
-  NetworkTableInstance inst = NetworkTableInstance.getDefault();
+  private final NetworkTableInstance inst = NetworkTableInstance.getDefault();
   //private final String m_name;
   private final NetworkTable m_table;
   // distance, m
-  DoublePublisher m_DriveEncoderPubM;
+  private final  DoublePublisher m_DriveEncoderPubM;
   // distance, rad
-  DoublePublisher m_TurnEncoderPubRad;
+  private final  DoublePublisher m_TurnEncoderPubRad;
   // drive rate only, m/s; turn rate is ignored
-  DoublePublisher m_DriveEncoderRatePubM_s;
+  private final  DoublePublisher m_DriveEncoderRatePubM_s;
   // motor output, [-1,1]
-  DoublePublisher m_DrivePWMPub1_1;
-  DoublePublisher m_TurnPWMPub1_1;
+  private final  DoublePublisher m_DrivePWMPub1_1;
+  private final  DoublePublisher m_TurnPWMPub1_1;
   // desired velocity from "inverse feed forward", m/s
-  DoublePublisher m_DriveVPubM_s;
+  private final  DoublePublisher m_DriveVPubM_s;
   // desired velocity from "inverse feed forward", rad/s
-  DoublePublisher m_TurnVPubRad_s;
+  private final  DoublePublisher m_TurnVPubRad_s;
   // desired velocity from input.
-  DoublePublisher m_DriveVInPubM_s;
+  private final  DoublePublisher m_DriveVInPubM_s;
   // desired position from input.
-  DoublePublisher m_TurnPInPubRad;
+  private final  DoublePublisher m_TurnPInPubRad;
 
   // ######## SIMULATION ########
-  EncoderSim m_DriveEncoderSim;
-  EncoderSim m_TurnEncoderSim;
-  PWMSim m_DrivePWMSim;
-  PWMSim m_TurnPWMSim;
+  private final  EncoderSim m_DriveEncoderSim;
+  private final  EncoderSim m_TurnEncoderSim;
+  private final  PWMSim m_DrivePWMSim;
+  private final  PWMSim m_TurnPWMSim;
 
   List<CallbackStore> cbs = new ArrayList<CallbackStore>();
   private double m_prevTimeSeconds = Timer.getFPGATimestamp();
@@ -234,7 +234,8 @@ public class SwerveModule {
    */
   public void setDesiredState(SwerveModuleState desiredState) {
     // Optimize the reference state to avoid spinning further than 90 degrees
-    SwerveModuleState state = SwerveModuleState.optimize(desiredState, new Rotation2d(m_turningEncoder.getDistance()));
+    SwerveModuleState state = SwerveModuleState.optimize(desiredState, 
+    new Rotation2d(m_turningEncoder.getDistance()));
     // state.speedMetersPerSecond max is correct at 3.
     // Calculate the drive output from the drive PID controller.
     final double driveOutput = m_drivePIDController.calculate(m_driveEncoder.getRate(), state.speedMetersPerSecond);
