@@ -10,7 +10,7 @@ mode also works, making a sort of circle in the middle of the field.
 
 Caveats:
 
-* There's also something wrong with the rotational control in autonomous: it oscillates; maybe the encoder is backwards or something.
+* Rotation in autonomous isn't controlled correctly.
 
 I'll try to fix the issues, hopefully by Christmas.
 
