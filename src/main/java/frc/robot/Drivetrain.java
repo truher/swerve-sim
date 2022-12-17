@@ -29,7 +29,6 @@ import edu.wpi.first.wpilibj.AnalogGyro;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.simulation.AnalogGyroSim;
 import edu.wpi.first.wpilibj.simulation.CallbackStore;
-import edu.wpi.first.wpilibj.simulation.EncoderSim;
 import edu.wpi.first.wpilibj.simulation.PWMSim;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
@@ -45,10 +44,10 @@ public class Drivetrain extends SubsystemBase {
   private final Translation2d m_backLeftLocation = new Translation2d(-0.381, 0.381);
   private final Translation2d m_backRightLocation = new Translation2d(-0.381, -0.381);
 
-  private final SwerveModule m_frontLeft = new SwerveModule(1, 2, 0, 1, 2, 3);
-  private final SwerveModule m_frontRight = new SwerveModule(3, 4, 4, 5, 6, 7);
-  private final SwerveModule m_backLeft = new SwerveModule(5, 6, 8, 9, 10, 11);
-  private final SwerveModule m_backRight = new SwerveModule(7, 8, 12, 13, 14, 15);
+  private final SwerveModule m_frontLeft = new SwerveModule("FrontLeft", 1, 2, 0, 1, 2, 3);
+  private final SwerveModule m_frontRight = new SwerveModule("FrontRight", 3, 4, 4, 5, 6, 7);
+  private final SwerveModule m_backLeft = new SwerveModule("BackLeft", 5, 6, 8, 9, 10, 11);
+  private final SwerveModule m_backRight = new SwerveModule("BackRight", 7, 8, 12, 13, 14, 15);
 
   private final AnalogGyro m_gyro = new AnalogGyro(0);
 
@@ -61,8 +60,7 @@ public class Drivetrain extends SubsystemBase {
 
   /*
    * Here we use SwerveDrivePoseEstimator so that we can fuse odometry readings.
-   * The numbers used
-   * below are robot specific, and should be tuned.
+   * The numbers used below are robot specific, and should be tuned.
    */
   private final SwerveDrivePoseEstimator<N7, N7, N5> m_poseEstimator = new SwerveDrivePoseEstimator<N7, N7, N5>(
       Nat.N7(),
@@ -87,79 +85,12 @@ public class Drivetrain extends SubsystemBase {
   DoublePublisher ySpeedPubM_s = inst.getTable("desired").getDoubleTopic("yspeed m_s").publish();
   DoublePublisher thetaSpeedPubRad_s = inst.getTable("desired").getDoubleTopic("thetaspeed rad_s").publish();
 
-  NetworkTable frontLeft = inst.getTable("FrontLeft");
-  NetworkTable frontRight = inst.getTable("FrontRight");
-  NetworkTable backLeft = inst.getTable("BackLeft");
-  NetworkTable backRight = inst.getTable("BackRight");
-
-  // distance
-  DoublePublisher frontLeftDriveEncoderPubM = frontLeft.getDoubleTopic("driveEncoderDistanceM").publish();
-  DoublePublisher frontLeftTurnEncoderPubRad = frontLeft.getDoubleTopic("turnEncoderDistanceRad").publish();
-  DoublePublisher frontRightDriveEncoderPubM = frontRight.getDoubleTopic("driveEncoderDistanceM").publish();
-  DoublePublisher frontRightTurnEncoderPubRad = frontRight.getDoubleTopic("turnEncoderDistanceRad").publish();
-  DoublePublisher backLeftDriveEncoderPubM = backLeft.getDoubleTopic("driveEncoderDistanceM").publish();
-  DoublePublisher backLeftTurnEncoderPubRad = backLeft.getDoubleTopic("turnEncoderDistanceRad").publish();
-  DoublePublisher backRightDriveEncoderPubM = backRight.getDoubleTopic("driveEncoderDistanceM").publish();
-  DoublePublisher backRightTurnEncoderPubRad = backRight.getDoubleTopic("turnEncoderDistanceRad").publish();
-
-  // drive rate only; turn rate is ignored
-  DoublePublisher frontLeftDriveEncoderRatePubM_s = frontLeft.getDoubleTopic("driveEncoderRateM_s").publish();
-  DoublePublisher frontRightDriveEncoderRatePubM_s = frontRight.getDoubleTopic("driveEncoderRateM_s").publish();
-  DoublePublisher backLeftDriveEncoderRatePubM_s = backLeft.getDoubleTopic("driveEncoderRateM_s").publish();
-  DoublePublisher backRightDriveEncoderRatePubM_s = backRight.getDoubleTopic("driveEncoderRateM_s").publish();
-
-  // motor output should be [-1,1]
-  DoublePublisher frontLeftDrivePWMPub1_1 = frontLeft.getDoubleTopic("drivePWMOutput1_1").publish();
-  DoublePublisher frontLeftTurnPWMPub1_1 = frontLeft.getDoubleTopic("turnPWMOutput1_1").publish();
-  DoublePublisher frontRightDrivePWMPub1_1 = frontRight.getDoubleTopic("drivePWMOutput1_1").publish();
-  DoublePublisher frontRightTurnPWMPub1_1 = frontRight.getDoubleTopic("turnPWMOutput1_1").publish();
-  DoublePublisher backLeftDrivePWMPub1_1 = backLeft.getDoubleTopic("drivePWMOutput1_1").publish();
-  DoublePublisher backLeftTurnPWMPub1_1 = backLeft.getDoubleTopic("turnPWMOutput1_1").publish();
-  DoublePublisher backRightDrivePWMPub1_1 = backRight.getDoubleTopic("drivePWMOutput1_1").publish();
-  DoublePublisher backRightTurnPWMPub1_1 = backRight.getDoubleTopic("turnPWMOutput1_1").publish();
-
-  // desired velocity or position from input.
-  DoublePublisher frontLeftDriveVInPubM_s = frontLeft.getDoubleTopic("driveInputSpeedM_s").publish();
-  DoublePublisher frontLeftTurnPInPubRad = frontLeft.getDoubleTopic("turnInputRad").publish();
-  DoublePublisher frontRightDriveVInPubM_s = frontRight.getDoubleTopic("driveInputSpeedM_s").publish();
-  DoublePublisher frontRightTurnPInPubRad = frontRight.getDoubleTopic("turnInputRad").publish();
-  DoublePublisher backLeftDriveVInPubM_s = backLeft.getDoubleTopic("driveInputSpeedM_s").publish();
-  DoublePublisher backLeftTurnPInPubRad = backLeft.getDoubleTopic("turnDInputRad").publish();
-  DoublePublisher backRightDriveVInPubM_s = backRight.getDoubleTopic("driveInputSpeedM_s").publish();
-  DoublePublisher backRightTurnPInPubRad = backRight.getDoubleTopic("turnInputSRad").publish();
-
-  // desired velocity from "inverse feed forward", should be m/s or rad/s.
-  DoublePublisher frontLeftDriveVPubM_s = frontLeft.getDoubleTopic("driveDesiredSpeedM_s").publish();
-  DoublePublisher frontLeftTurnVPubRad_s = frontLeft.getDoubleTopic("turnDesiredSpeedRad_s").publish();
-  DoublePublisher frontRightDriveVPubM_s = frontRight.getDoubleTopic("driveDesiredSpeedM_s").publish();
-  DoublePublisher frontRightTurnVPubRad_s = frontRight.getDoubleTopic("turnDesiredSpeedRad_s").publish();
-  DoublePublisher backLeftDriveVPubM_s = backLeft.getDoubleTopic("driveDesiredSpeedM_s").publish();
-  DoublePublisher backLeftTurnVPubRad_s = backLeft.getDoubleTopic("turnDesiredSpeedRad_s").publish();
-  DoublePublisher backRightDriveVPubM_s = backRight.getDoubleTopic("driveDesiredSpeedM_s").publish();
-  DoublePublisher backRightTurnVPubRad_s = backRight.getDoubleTopic("turnDesiredSpeedRad_s").publish();
-
   DoubleArrayPublisher fieldPub;
   StringPublisher fieldTypePub;
 
   List<CallbackStore> cbs = new ArrayList<CallbackStore>();
 
-  EncoderSim frontLeftDriveEncoderSim = EncoderSim.createForChannel(0);
-  EncoderSim frontLeftTurnEncoderSim = EncoderSim.createForChannel(2);
-  EncoderSim frontRightDriveEncoderSim = EncoderSim.createForChannel(4);
-  EncoderSim frontRightTurnEncoderSim = EncoderSim.createForChannel(6);
-  EncoderSim backLeftDriveEncoderSim = EncoderSim.createForChannel(8);
-  EncoderSim backLeftTurnEncoderSim = EncoderSim.createForChannel(10);
-  EncoderSim backRightDriveEncoderSim = EncoderSim.createForChannel(12);
-  EncoderSim backRightTurnEncoderSim = EncoderSim.createForChannel(14);
-
-  PWMSim frontLeftDrivePWMSim = new PWMSim(1);
-  PWMSim frontLeftTurnPWMSim = new PWMSim(2);
-  PWMSim frontRightDrivePWMSim = new PWMSim(3);
-  PWMSim frontRightTurnPWMSim = new PWMSim(4);
-  PWMSim backLeftDrivePWMSim = new PWMSim(5);
-  PWMSim backLeftTurnPWMSim = new PWMSim(6);
-  PWMSim backRightDrivePWMSim = new PWMSim(7);
-  PWMSim backRightTurnPWMSim = new PWMSim(8);
+  // TODO: gyro is NED, robot is NWU, need to invert somewhere.
   AnalogGyroSim gyroSim = new AnalogGyroSim(0);
 
   public Drivetrain() {
@@ -177,47 +108,40 @@ public class Drivetrain extends SubsystemBase {
 
   public void resetOdometry(Pose2d pose) {
     m_poseEstimator.resetPosition(m_gyro.getRotation2d(), new SwerveModulePosition[] {
-      m_frontLeft.getPosition(),
-      m_frontRight.getPosition(),
-      m_backLeft.getPosition(),
-      m_backRight.getPosition()
+        m_frontLeft.getPosition(),
+        m_frontRight.getPosition(),
+        m_backLeft.getPosition(),
+        m_backRight.getPosition()
     }, pose);
   }
 
   /**
    * Method to drive the robot using joystick info.
    *
-   * @param xSpeed        Speed of the robot in the x direction (forward).
-   * @param ySpeed        Speed of the robot in the y direction (sideways).
-   * @param rot           Angular rate of the robot.
+   * @param xSpeedM_s        Speed of the robot in the x direction (forward).
+   * @param ySpeedM_s        Speed of the robot in the y direction (sideways).
+   * @param rotRad_s           Angular rate of the robot.
    * @param fieldRelative Whether the provided x and y speeds are relative to the
    *                      field.
    */
-  public void drive(double xSpeed, double ySpeed, double rot, boolean fieldRelative) {
-    // requestedXSpeed = xSpeed m/s
-    // requestedYSpeed = ySpeed m/s
-    // requestedThetaSpeed = rot rad/s
-    xSpeedPubM_s.set(xSpeed);
-    ySpeedPubM_s.set(ySpeed);
-    thetaSpeedPubRad_s.set(rot);
+  public void drive(double xSpeedM_s, double ySpeedM_s, double rotRad_s, boolean fieldRelative) {
+    xSpeedPubM_s.set(xSpeedM_s);
+    ySpeedPubM_s.set(ySpeedM_s);
+    thetaSpeedPubRad_s.set(rotRad_s);
 
     SwerveModuleState[] swerveModuleStates = m_kinematics.toSwerveModuleStates(
         fieldRelative
-            ? ChassisSpeeds.fromFieldRelativeSpeeds(xSpeed, ySpeed, rot, m_gyro.getRotation2d())
-            : new ChassisSpeeds(xSpeed, ySpeed, rot));
+            ? ChassisSpeeds.fromFieldRelativeSpeeds(xSpeedM_s, ySpeedM_s, rotRad_s, m_gyro.getRotation2d())
+            : new ChassisSpeeds(xSpeedM_s, ySpeedM_s, rotRad_s));
 
     setModuleStates(swerveModuleStates);
   }
 
   public void setModuleStates(SwerveModuleState[] swerveModuleStates) {
-    frontLeftDriveVInPubM_s.set(swerveModuleStates[0].speedMetersPerSecond);
-    frontLeftTurnPInPubRad.set(swerveModuleStates[0].angle.getRadians());
-    frontRightDriveVInPubM_s.set(swerveModuleStates[1].speedMetersPerSecond);
-    frontRightTurnPInPubRad.set(swerveModuleStates[1].angle.getRadians());
-    backLeftDriveVInPubM_s.set(swerveModuleStates[2].speedMetersPerSecond);
-    backLeftTurnPInPubRad.set(swerveModuleStates[2].angle.getRadians());
-    backRightDriveVInPubM_s.set(swerveModuleStates[3].speedMetersPerSecond);
-    backRightTurnPInPubRad.set(swerveModuleStates[3].angle.getRadians());
+    m_frontLeft.publishState(swerveModuleStates[0]);
+    m_frontRight.publishState(swerveModuleStates[1]);
+    m_backLeft.publishState(swerveModuleStates[2]);
+    m_backRight.publishState(swerveModuleStates[3]);
 
     SwerveDriveKinematics.desaturateWheelSpeeds(swerveModuleStates, kMaxSpeed); // 3m/s max
 
@@ -266,125 +190,32 @@ public class Drivetrain extends SubsystemBase {
 
   }
 
-  public void pubSim(PWMSim sim, DoublePublisher pub) {
-    cbs.add(sim.registerSpeedCallback((name, value) -> pub.set(value.getDouble()), true));
-  }
-
   public void simulationInit() {
-    pubSim(frontLeftDrivePWMSim, frontLeftDrivePWMPub1_1);
-    pubSim(frontLeftTurnPWMSim, frontLeftTurnPWMPub1_1);
-    pubSim(frontRightDrivePWMSim, frontRightDrivePWMPub1_1);
-    pubSim(frontRightTurnPWMSim, frontRightTurnPWMPub1_1);
-    pubSim(backLeftDrivePWMSim, backLeftDrivePWMPub1_1);
-    pubSim(backLeftTurnPWMSim, backLeftTurnPWMPub1_1);
-    pubSim(backRightDrivePWMSim, backRightDrivePWMPub1_1);
-    pubSim(backRightTurnPWMSim, backRightTurnPWMPub1_1);
-  }
-
-  /**
-   * turn motor voltage back into speed
-   * 
-   * inverting the feedforward is surely wrong but it should work.
-   * 
-   * feedforward is
-   * output = ks * signum(v) + kv * v.
-   * so,
-   * v = (output - ks*signum(output))/kv
-   * 
-   * to slow things down, divide by ... two?
-   * 
-   * @param output [-1,1]
-   */
-  public double vFromOutput(double output, double ks, double kv) {
-    // System.out.printf("output %f\n", output);
-    double result = (output - ks * Math.signum(output)) / kv;
-    // System.out.printf("result %f\n", result);
-    return result;
-  }
-
-  public double vFromTurnOutput(double output, double ks, double kv) {
-    return (output - ks * Math.signum(output)) / kv;
+    m_frontLeft.simulationInit();
+    m_frontRight.simulationInit();
+    m_backLeft.simulationInit();
+    m_backRight.simulationInit();
   }
 
   public void simulationPeriodic() {
+    m_frontLeft.simulationPeriodic();
+    m_frontRight.simulationPeriodic();
+    m_backLeft.simulationPeriodic();
+    m_backRight.simulationPeriodic();
+
     double currentTimeSeconds = Timer.getFPGATimestamp();
     double dtS = m_prevTimeSeconds >= 0 ? currentTimeSeconds - m_prevTimeSeconds : m_nominalDtS;
     m_prevTimeSeconds = currentTimeSeconds;
 
-    // drive velocities are meters per second
-    // turn velocities are radians per second.
-    double frontLeftDriveVM_s = vFromOutput(frontLeftDrivePWMSim.getSpeed(), SwerveModule.DRIVE_KS,
-        SwerveModule.DRIVE_KV);
-    double frontLeftTurnVRad_s = vFromTurnOutput(frontLeftTurnPWMSim.getSpeed(), SwerveModule.TURN_KS,
-        SwerveModule.TURN_KV);
-    double frontRightDriveVM_s = vFromOutput(frontRightDrivePWMSim.getSpeed(), SwerveModule.DRIVE_KS,
-        SwerveModule.DRIVE_KV);
-    double frontRightTurnVRad_s = vFromTurnOutput(frontRightTurnPWMSim.getSpeed(), SwerveModule.TURN_KS,
-        SwerveModule.TURN_KV);
-    double backLeftDriveVM_s = vFromOutput(backLeftDrivePWMSim.getSpeed(), SwerveModule.DRIVE_KS,
-        SwerveModule.DRIVE_KV);
-    double backLeftTurnVRad_s = vFromTurnOutput(backLeftTurnPWMSim.getSpeed(), SwerveModule.TURN_KS,
-        SwerveModule.TURN_KV);
-    double backRightDriveVM_s = vFromOutput(backRightDrivePWMSim.getSpeed(), SwerveModule.DRIVE_KS,
-        SwerveModule.DRIVE_KV);
-    double backRightTurnVRad_s = vFromTurnOutput(backRightTurnPWMSim.getSpeed(), SwerveModule.TURN_KS,
-        SwerveModule.TURN_KV);
-
-    frontLeftDriveVPubM_s.set(frontLeftDriveVM_s);
-    frontLeftTurnVPubRad_s.set(frontLeftTurnVRad_s);
-    frontRightDriveVPubM_s.set(frontRightDriveVM_s);
-    frontRightTurnVPubRad_s.set(frontRightTurnVRad_s);
-    backLeftDriveVPubM_s.set(backLeftDriveVM_s);
-    backLeftTurnVPubRad_s.set(backLeftTurnVRad_s);
-    backRightDriveVPubM_s.set(backRightDriveVM_s);
-    backRightTurnVPubRad_s.set(backRightTurnVRad_s);
-
-    // set the encoders
-    frontLeftDriveEncoderSim.setRate(frontLeftDriveVM_s);
-    frontLeftDriveEncoderSim.setDistance(frontLeftDriveEncoderSim.getDistance() + frontLeftDriveVM_s * dtS);
-    frontLeftTurnEncoderSim.setDistance(frontLeftTurnEncoderSim.getDistance() + frontLeftTurnVRad_s * dtS);
-
-    frontRightDriveEncoderSim.setRate(frontRightDriveVM_s);
-    frontRightDriveEncoderSim.setDistance(frontRightDriveEncoderSim.getDistance() + frontRightDriveVM_s * dtS);
-    frontRightTurnEncoderSim.setDistance(frontRightTurnEncoderSim.getDistance() + frontRightTurnVRad_s * dtS);
-
-    backLeftDriveEncoderSim.setRate(backLeftDriveVM_s);
-    backLeftDriveEncoderSim.setDistance(backLeftDriveEncoderSim.getDistance() + backLeftDriveVM_s * dtS);
-    backLeftTurnEncoderSim.setDistance(backLeftTurnEncoderSim.getDistance() + backLeftTurnVRad_s * dtS);
-
-    backRightDriveEncoderSim.setRate(backRightDriveVM_s);
-    backRightDriveEncoderSim.setDistance(backRightDriveEncoderSim.getDistance() + backRightDriveVM_s * dtS);
-    backRightTurnEncoderSim.setDistance(backRightTurnEncoderSim.getDistance() + backRightTurnVRad_s * dtS);
-
-    frontLeftDriveEncoderPubM.set(frontLeftDriveEncoderSim.getDistance());
-    frontLeftTurnEncoderPubRad.set(frontLeftTurnEncoderSim.getDistance());
-    frontRightDriveEncoderPubM.set(frontRightDriveEncoderSim.getDistance());
-    frontRightTurnEncoderPubRad.set(frontRightTurnEncoderSim.getDistance());
-    backLeftDriveEncoderPubM.set(backLeftDriveEncoderSim.getDistance());
-    backLeftTurnEncoderPubRad.set(backLeftTurnEncoderSim.getDistance());
-    backRightDriveEncoderPubM.set(backRightDriveEncoderSim.getDistance());
-    backRightTurnEncoderPubRad.set(backRightTurnEncoderSim.getDistance());
-
-    frontLeftDriveEncoderRatePubM_s.set(frontLeftDriveEncoderSim.getRate());
-    frontRightDriveEncoderRatePubM_s.set(frontRightDriveEncoderSim.getRate());
-    backLeftDriveEncoderRatePubM_s.set(backLeftDriveEncoderSim.getRate());
-    backRightDriveEncoderRatePubM_s.set(backRightDriveEncoderSim.getRate());
-
+    // in simulation these should be the values we just set
+    // in SwerveModule.simulationPeriodic(), so we don't need
+    // to adjust them *again*, just use them to update the gyro.
     SwerveModuleState[] states = new SwerveModuleState[] {
         m_frontLeft.getState(),
         m_frontRight.getState(),
         m_backLeft.getState(),
         m_backRight.getState()
     };
-    states[0].angle = states[0].angle.plus(new Rotation2d(frontLeftTurnVRad_s));
-    states[1].angle = states[1].angle.plus(new Rotation2d(frontRightTurnVRad_s));
-    states[2].angle = states[2].angle.plus(new Rotation2d(backLeftTurnVRad_s));
-    states[3].angle = states[3].angle.plus(new Rotation2d(backRightTurnVRad_s));
-
-    states[0].speedMetersPerSecond = frontLeftDriveVM_s;
-    states[1].speedMetersPerSecond = frontRightDriveVM_s;
-    states[2].speedMetersPerSecond = backLeftDriveVM_s;
-    states[3].speedMetersPerSecond = backRightDriveVM_s;
 
     ChassisSpeeds speeds = m_kinematics.toChassisSpeeds(states);
 
@@ -393,7 +224,6 @@ public class Drivetrain extends SubsystemBase {
         robotPose.getY() + speeds.vyMetersPerSecond * dtS,
         robotPose.getRotation().plus(new Rotation2d(speeds.omegaRadiansPerSecond * dtS)));
     robotPose = newPose;
-    // gyroSim.setAngle(gyroSim.getAngle() + speeds.omegaRadiansPerSecond * dtS);
     gyroSim.setAngle(robotPose.getRotation().getRadians());
 
     // cheat, tell the pose estimator to use this pose.

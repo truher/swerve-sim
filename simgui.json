@@ -62,18 +62,6 @@
   },
   "NetworkTables": {
     "transitory": {
-      "BackLeft": {
-        "open": true
-      },
-      "BackRight": {
-        "open": true
-      },
-      "FrontLeft": {
-        "open": true
-      },
-      "FrontRight": {
-        "open": true
-      },
       "SmartDashboard": {
         "Field": {
           "open": true
@@ -191,7 +179,7 @@
               "autoFit": true
             }
           ],
-          "height": 313,
+          "height": 301,
           "series": [
             {
               "color": [
@@ -241,7 +229,7 @@
               "autoFit": true
             }
           ],
-          "height": 338,
+          "height": 292,
           "series": [
             {
               "color": [
@@ -280,18 +268,6 @@
               "id": "NT:/FrontRight/driveEncoderRateM_s"
             }
           ]
-        }
-      ]
-    },
-    "Plot <2>": {
-      "plots": [
-        {
-          "axis": [
-            {
-              "autoFit": true
-            }
-          ],
-          "height": 338
         }
       ]
     }

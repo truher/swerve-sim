@@ -4,6 +4,9 @@
 
 package frc.robot;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.controller.SimpleMotorFeedforward;
@@ -11,9 +14,16 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.math.trajectory.TrapezoidProfile;
+import edu.wpi.first.networktables.DoublePublisher;
+import edu.wpi.first.networktables.NetworkTable;
+import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj.Encoder;
-import edu.wpi.first.wpilibj.motorcontrol.MotorController;
+import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.motorcontrol.PWMMotorController;
 import edu.wpi.first.wpilibj.motorcontrol.PWMSparkMax;
+import edu.wpi.first.wpilibj.simulation.CallbackStore;
+import edu.wpi.first.wpilibj.simulation.EncoderSim;
+import edu.wpi.first.wpilibj.simulation.PWMSim;
 
 public class SwerveModule {
   public static final double TURN_KV = 0.05;
@@ -26,8 +36,8 @@ public class SwerveModule {
   private static final double kModuleMaxAngularVelocity = Drivetrain.kMaxAngularSpeed;
   private static final double kModuleMaxAngularAcceleration = 50 * Math.PI; // radians per second squared
 
-  private final MotorController m_driveMotor;
-  private final MotorController m_turningMotor;
+  private final PWMMotorController m_driveMotor;
+  private final PWMMotorController m_turningMotor;
 
   private final Encoder m_driveEncoder;
   private final Encoder m_turningEncoder;
@@ -47,6 +57,38 @@ public class SwerveModule {
   private final SimpleMotorFeedforward m_driveFeedforward = new SimpleMotorFeedforward(DRIVE_KS, DRIVE_KV);
   private final SimpleMotorFeedforward m_turnFeedforward = new SimpleMotorFeedforward(TURN_KS, TURN_KV);
 
+  // ######## network tables ########
+  NetworkTableInstance inst = NetworkTableInstance.getDefault();
+  //private final String m_name;
+  private final NetworkTable m_table;
+  // distance, m
+  DoublePublisher m_DriveEncoderPubM;
+  // distance, rad
+  DoublePublisher m_TurnEncoderPubRad;
+  // drive rate only, m/s; turn rate is ignored
+  DoublePublisher m_DriveEncoderRatePubM_s;
+  // motor output, [-1,1]
+  DoublePublisher m_DrivePWMPub1_1;
+  DoublePublisher m_TurnPWMPub1_1;
+  // desired velocity from "inverse feed forward", m/s
+  DoublePublisher m_DriveVPubM_s;
+  // desired velocity from "inverse feed forward", rad/s
+  DoublePublisher m_TurnVPubRad_s;
+  // desired velocity from input.
+  DoublePublisher m_DriveVInPubM_s;
+  // desired position from input.
+  DoublePublisher m_TurnPInPubRad;
+
+  // ######## SIMULATION ########
+  EncoderSim m_DriveEncoderSim;
+  EncoderSim m_TurnEncoderSim;
+  PWMSim m_DrivePWMSim;
+  PWMSim m_TurnPWMSim;
+
+  List<CallbackStore> cbs = new ArrayList<CallbackStore>();
+  private double m_prevTimeSeconds = Timer.getFPGATimestamp();
+  private final double m_nominalDtS = 0.02; // Seconds
+
   /**
    * Constructs a SwerveModule with a drive motor, turning motor, drive encoder
    * and turning encoder.
@@ -59,17 +101,39 @@ public class SwerveModule {
    * @param turningEncoderChannelB DIO input for the turning encoder channel B
    */
   public SwerveModule(
+      String name,
       int driveMotorChannel,
       int turningMotorChannel,
       int driveEncoderChannelA,
       int driveEncoderChannelB,
       int turningEncoderChannelA,
       int turningEncoderChannelB) {
+    //m_name = name;
+    m_table = inst.getTable(name);
+    m_DriveEncoderPubM = m_table.getDoubleTopic("driveEncoderDistanceM").publish();
+    m_TurnEncoderPubRad = m_table.getDoubleTopic("turnEncoderDistanceRad").publish();
+    m_DriveEncoderRatePubM_s = m_table.getDoubleTopic("driveEncoderRateM_s").publish();
+    m_DrivePWMPub1_1 = m_table.getDoubleTopic("drivePWMOutput1_1").publish();
+    m_TurnPWMPub1_1 = m_table.getDoubleTopic("turnPWMOutput1_1").publish();
+    m_DriveVPubM_s = m_table.getDoubleTopic("driveDesiredSpeedM_s").publish();
+    m_TurnVPubRad_s = m_table.getDoubleTopic("turnDesiredSpeedRad_s").publish();
+    m_DriveVInPubM_s = m_table.getDoubleTopic("driveInputSpeedM_s").publish();
+    m_TurnPInPubRad = m_table.getDoubleTopic("turnInputRad").publish();
+
     m_driveMotor = new PWMSparkMax(driveMotorChannel);
     m_turningMotor = new PWMSparkMax(turningMotorChannel);
 
+    m_DrivePWMSim = new PWMSim(m_driveMotor);
+    m_TurnPWMSim = new PWMSim(m_turningMotor);
+
     m_driveEncoder = new Encoder(driveEncoderChannelA, driveEncoderChannelB);
     m_turningEncoder = new Encoder(turningEncoderChannelA, turningEncoderChannelB);
+
+    m_DriveEncoderSim = new EncoderSim(m_driveEncoder);
+    m_TurnEncoderSim = new EncoderSim(m_turningEncoder);
+
+    pubSim(m_DrivePWMSim, m_DrivePWMPub1_1);
+    pubSim(m_TurnPWMSim, m_TurnPWMPub1_1);
 
     // Set the distance per pulse for the drive encoder. We can simply use the
     // distance traveled for one rotation of the wheel divided by the encoder
@@ -85,6 +149,56 @@ public class SwerveModule {
     // Limit the PID Controller's input range between -pi and pi and set the input
     // to be continuous.
     m_turningPIDController.enableContinuousInput(-Math.PI, Math.PI);
+  }
+
+  public void pubSim(PWMSim sim, DoublePublisher pub) {
+    cbs.add(sim.registerSpeedCallback((name, value) -> pub.set(value.getDouble()), true));
+  }
+
+  /**
+   * turn motor voltage back into speed
+   * 
+   * inverting the feedforward is surely wrong but it should work.
+   * 
+   * feedforward is
+   * output = ks * signum(v) + kv * v.
+   * so,
+   * v = (output - ks*signum(output))/kv
+   * 
+   * @param output [-1,1]
+   */
+  public double vFromOutput(double output, double ks, double kv) {
+    double result = (output - ks * Math.signum(output)) / kv;
+    return result;
+  }
+
+  public void simulationPeriodic() {
+    double currentTimeSeconds = Timer.getFPGATimestamp();
+    double dtS = m_prevTimeSeconds >= 0 ? currentTimeSeconds - m_prevTimeSeconds : m_nominalDtS;
+    m_prevTimeSeconds = currentTimeSeconds;
+
+    // derive velocity from motor output
+    double driveVM_s = vFromOutput(m_DrivePWMSim.getSpeed(), DRIVE_KS, DRIVE_KV);
+    double turnVRad_s = vFromOutput(m_TurnPWMSim.getSpeed(), TURN_KS, TURN_KV);
+
+    // observe the derived velocity
+    m_DriveVPubM_s.set(driveVM_s);
+    m_TurnVPubRad_s.set(turnVRad_s);
+
+    // set the encoders using the derived velocity
+    m_DriveEncoderSim.setRate(driveVM_s);
+    m_DriveEncoderSim.setDistance(m_DriveEncoderSim.getDistance() + driveVM_s * dtS);
+    m_TurnEncoderSim.setDistance(m_TurnEncoderSim.getDistance() + turnVRad_s * dtS);
+
+    // observe the encoders
+    m_DriveEncoderPubM.set(m_DriveEncoderSim.getDistance());
+    m_TurnEncoderPubRad.set(m_TurnEncoderSim.getDistance());
+    m_DriveEncoderRatePubM_s.set(m_DriveEncoderSim.getRate());
+
+  }
+
+  public void simulationInit() {
+
   }
 
   /**
@@ -105,6 +219,12 @@ public class SwerveModule {
   public SwerveModulePosition getPosition() {
     return new SwerveModulePosition(
         m_driveEncoder.getDistance(), new Rotation2d(m_turningEncoder.getDistance()));
+  }
+
+  // just to see it, has no effect
+  public void publishState(SwerveModuleState state) {
+    m_DriveVInPubM_s.set(state.speedMetersPerSecond);
+    m_TurnPInPubRad.set(state.angle.getRadians());
   }
 
   /**
@@ -132,12 +252,5 @@ public class SwerveModule {
 
     // m_turningMotor.setVoltage(turnOutput + turnFeedforward);
     m_turningMotor.set(turnOutput + turnFeedforward);
-
-    // System.out.printf("drive desired %5.3f encoder %5.3f output %5.3f ff %5.3f motor
-    // %5.3f\n",
-    // desiredState.speedMetersPerSecond, m_driveEncoder.getRate(), driveOutput,
-    // driveFeedforward, m_driveMotor.get());
-   // System.out.printf("turn desired %5.3f encoder %5.3f output %5.3f ff %5.3f motor %5.3f\n",
-    //    desiredState.angle.getRadians(), m_turningEncoder.getDistance(), turnOutput, turnFeedforward, m_turningMotor.get());
   }
 }
