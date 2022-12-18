@@ -1,3 +1,5 @@
+<video src="https://github.com/truher/swerve-sim/raw/master/Robot%20Simulation%202022-12-17%2016-42-25.mp4"></video>
+
 # Swerve Sim
 
 This is the simplest possible simulation of a swerve drive, using forward kinematics based on the feedforwards of each motor, with no
