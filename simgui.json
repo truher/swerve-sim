@@ -5,11 +5,6 @@
         "columns": 11
       }
     },
-    "Analog Inputs": {
-      "window": {
-        "visible": true
-      }
-    },
     "Other Devices": {
       "AnalogGyro[0]": {
         "header": {
@@ -20,11 +15,14 @@
         "header": {
           "open": true
         }
+      },
+      "window": {
+        "visible": false
       }
     },
-    "PWM Outputs": {
+    "Timing": {
       "window": {
-        "visible": true
+        "visible": false
       }
     }
   },
@@ -188,6 +186,9 @@
       "open": true
     }
   },
+  "NetworkTables View": {
+    "visible": false
+  },
   "Plot": {
     "Plot <0>": {
       "plots": [
@@ -197,7 +198,7 @@
               "autoFit": true
             }
           ],
-          "height": 301,
+          "height": 209,
           "series": [
             {
               "color": [
@@ -237,7 +238,10 @@
             }
           ]
         }
-      ]
+      ],
+      "window": {
+        "visible": false
+      }
     },
     "Plot <1>": {
       "plots": [
@@ -247,7 +251,7 @@
               "autoFit": true
             }
           ],
-          "height": 292,
+          "height": 221,
           "series": [
             {
               "color": [
@@ -287,7 +291,10 @@
             }
           ]
         }
-      ]
+      ],
+      "window": {
+        "visible": false
+      }
     }
   }
 }

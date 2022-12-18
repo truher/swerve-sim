@@ -33,19 +33,25 @@ public class SwerveModule {
   private static final double kWheelRadius = 0.0508;
   private static final int kEncoderResolution = 4096;
 
-  private static final double kModuleMaxAngularVelocity = Drivetrain.kMaxAngularSpeed;
-  private static final double kModuleMaxAngularAcceleration = 50 * Math.PI; // radians per second squared
+  private static final double kModuleMaxAngularVelocity = 10 * Math.PI; // rad/s, fast
+  private static final double kModuleMaxAngularAcceleration = 50 * Math.PI; // rad/s^2
 
   private final PWMMotorController m_driveMotor;
+  private final PWMSim m_DrivePWMSim;
+  // these are out here so i can observe them for testing.
+  double driveOutput;
+  double driveFeedforward;
+
   private final PWMMotorController m_turningMotor;
+  private final PWMSim m_TurnPWMSim;
 
-  private final Encoder m_driveEncoder;
+  final Encoder m_driveEncoder;
+  private final EncoderSim m_DriveEncoderSim;
   private final Encoder m_turningEncoder; // NWU
+  final EncoderSim m_TurnEncoderSim;
 
-  // Gains are for example purposes only - must be determined for your own robot!
-  private final PIDController m_drivePIDController = new PIDController(0.1, 0, 0);
+  final PIDController m_drivePIDController = new PIDController(0.1, 0, 0);
 
-  // Gains are for example purposes only - must be determined for your own robot!
   private final ProfiledPIDController m_turningPIDController = new ProfiledPIDController(
       0.2,
       0,
@@ -59,31 +65,25 @@ public class SwerveModule {
 
   // ######## network tables ########
   private final NetworkTableInstance inst = NetworkTableInstance.getDefault();
-  //private final String m_name;
+  // private final String m_name;
   private final NetworkTable m_table;
   // distance, m
-  private final  DoublePublisher m_DriveEncoderPubM;
+  private final DoublePublisher m_DriveEncoderPubM;
   // distance, rad
-  private final  DoublePublisher m_TurnEncoderPubRad;
+  private final DoublePublisher m_TurnEncoderPubRad;
   // drive rate only, m/s; turn rate is ignored
-  private final  DoublePublisher m_DriveEncoderRatePubM_s;
+  private final DoublePublisher m_DriveEncoderRatePubM_s;
   // motor output, [-1,1]
-  private final  DoublePublisher m_DrivePWMPub1_1;
-  private final  DoublePublisher m_TurnPWMPub1_1;
+  private final DoublePublisher m_DrivePWMPub1_1;
+  private final DoublePublisher m_TurnPWMPub1_1;
   // desired velocity from "inverse feed forward", m/s
-  private final  DoublePublisher m_DriveVPubM_s;
+  private final DoublePublisher m_DriveVPubM_s;
   // desired velocity from "inverse feed forward", rad/s
-  private final  DoublePublisher m_TurnVPubRad_s;
+  private final DoublePublisher m_TurnVPubRad_s;
   // desired velocity from input.
-  private final  DoublePublisher m_DriveVInPubM_s;
+  private final DoublePublisher m_DriveVInPubM_s;
   // desired position from input.
-  private final  DoublePublisher m_TurnPInPubRad;
-
-  // ######## SIMULATION ########
-  private final  EncoderSim m_DriveEncoderSim;
-  private final  EncoderSim m_TurnEncoderSim;
-  private final  PWMSim m_DrivePWMSim;
-  private final  PWMSim m_TurnPWMSim;
+  private final DoublePublisher m_TurnPInPubRad;
 
   List<CallbackStore> cbs = new ArrayList<CallbackStore>();
   private double m_prevTimeSeconds = Timer.getFPGATimestamp();
@@ -108,7 +108,7 @@ public class SwerveModule {
       int driveEncoderChannelB,
       int turningEncoderChannelA,
       int turningEncoderChannelB) {
-    //m_name = name;
+    // m_name = name;
     m_table = inst.getTable(name);
     m_DriveEncoderPubM = m_table.getDoubleTopic("driveEncoderDistanceM").publish();
     m_TurnEncoderPubRad = m_table.getDoubleTopic("turnEncoderDistanceRad").publish();
@@ -121,15 +121,15 @@ public class SwerveModule {
     m_TurnPInPubRad = m_table.getDoubleTopic("turnInputRad").publish();
 
     m_driveMotor = new PWMSparkMax(driveMotorChannel);
-    m_turningMotor = new PWMSparkMax(turningMotorChannel);
-
     m_DrivePWMSim = new PWMSim(m_driveMotor);
+
+    m_turningMotor = new PWMSparkMax(turningMotorChannel);
     m_TurnPWMSim = new PWMSim(m_turningMotor);
 
     m_driveEncoder = new Encoder(driveEncoderChannelA, driveEncoderChannelB);
-    m_turningEncoder = new Encoder(turningEncoderChannelA, turningEncoderChannelB);
-
     m_DriveEncoderSim = new EncoderSim(m_driveEncoder);
+
+    m_turningEncoder = new Encoder(turningEncoderChannelA, turningEncoderChannelB);
     m_TurnEncoderSim = new EncoderSim(m_turningEncoder);
 
     pubSim(m_DrivePWMSim, m_DrivePWMPub1_1);
@@ -176,6 +176,10 @@ public class SwerveModule {
     double currentTimeSeconds = Timer.getFPGATimestamp();
     double dtS = m_prevTimeSeconds >= 0 ? currentTimeSeconds - m_prevTimeSeconds : m_nominalDtS;
     m_prevTimeSeconds = currentTimeSeconds;
+    simulationPeriodic(dtS);
+  }
+
+  public void simulationPeriodic(double dtS) {
 
     // derive velocity from motor output
     double driveVM_s = vFromOutput(m_DrivePWMSim.getSpeed(), DRIVE_KS, DRIVE_KV);
@@ -198,7 +202,7 @@ public class SwerveModule {
   }
 
   public void simulationInit() {
-
+    // nothing to do
   }
 
   /**
@@ -234,13 +238,13 @@ public class SwerveModule {
    */
   public void setDesiredState(SwerveModuleState desiredState) {
     // Optimize the reference state to avoid spinning further than 90 degrees
-    SwerveModuleState state = SwerveModuleState.optimize(desiredState, 
-    new Rotation2d(m_turningEncoder.getDistance()));
+    SwerveModuleState state = SwerveModuleState.optimize(desiredState,
+        new Rotation2d(m_turningEncoder.getDistance()));
     // state.speedMetersPerSecond max is correct at 3.
     // Calculate the drive output from the drive PID controller.
-    final double driveOutput = m_drivePIDController.calculate(m_driveEncoder.getRate(), state.speedMetersPerSecond);
+    driveOutput = m_drivePIDController.calculate(m_driveEncoder.getRate(), state.speedMetersPerSecond);
 
-    final double driveFeedforward = m_driveFeedforward.calculate(state.speedMetersPerSecond);
+    driveFeedforward = m_driveFeedforward.calculate(state.speedMetersPerSecond);
 
     // Calculate the turning motor output from the turning PID controller.
     final double turnOutput = m_turningPIDController.calculate(m_turningEncoder.getDistance(),
@@ -253,5 +257,28 @@ public class SwerveModule {
 
     // m_turningMotor.setVoltage(turnOutput + turnFeedforward);
     m_turningMotor.set(turnOutput + turnFeedforward);
+  }
+
+  public double getDriveOutput() {
+    return m_driveMotor.get();
+  }
+
+  public double getTurnOutput() {
+    return m_turningMotor.get();
+  }
+
+  /** This is required to keep test cases separate. */
+  public void close() {
+    m_driveMotor.close();
+    m_turningMotor.close();
+
+    // m_DrivePWMSim.close();
+    // m_TurnPWMSim.close();
+
+    m_driveEncoder.close();
+    m_turningEncoder.close();
+
+    // m_DriveEncoderSim.close();
+    // m_TurnEncoderSim.close();
   }
 }

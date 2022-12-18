@@ -36,26 +36,27 @@ public class Drivetrain extends SubsystemBase {
   /** 3 m/s */
   public static final double kMaxSpeed = 6.0;
   /** pi rad/s */
-  public static final double kMaxAngularSpeed = 15 * Math.PI;
+  public static final double kMaxAngularSpeed = 6 * Math.PI;
 
   private final Translation2d m_frontLeftLocation = new Translation2d(0.381, 0.381);
   private final Translation2d m_frontRightLocation = new Translation2d(0.381, -0.381);
   private final Translation2d m_backLeftLocation = new Translation2d(-0.381, 0.381);
   private final Translation2d m_backRightLocation = new Translation2d(-0.381, -0.381);
 
-  private final SwerveModule m_frontLeft = new SwerveModule("FrontLeft", 1, 2, 0, 1, 2, 3);
-  private final SwerveModule m_frontRight = new SwerveModule("FrontRight", 3, 4, 4, 5, 6, 7);
-  private final SwerveModule m_backLeft = new SwerveModule("BackLeft", 5, 6, 8, 9, 10, 11);
-  private final SwerveModule m_backRight = new SwerveModule("BackRight", 7, 8, 12, 13, 14, 15);
+  // package visibility for testing
+  final SwerveModule m_frontLeft = new SwerveModule("FrontLeft", 1, 2, 0, 1, 2, 3);
+  final SwerveModule m_frontRight = new SwerveModule("FrontRight", 3, 4, 4, 5, 6, 7);
+  final SwerveModule m_backLeft = new SwerveModule("BackLeft", 5, 6, 8, 9, 10, 11);
+  final SwerveModule m_backRight = new SwerveModule("BackRight", 7, 8, 12, 13, 14, 15);
 
-  private final AnalogGyro m_gyro = new AnalogGyro(0);
-  // TODO: gyro is NED, robot is NWU, need to invert somewhere.
-  private final AnalogGyroSim gyroSim = new AnalogGyroSim(m_gyro);
+  final AnalogGyro m_gyro = new AnalogGyro(0);
+  // note gyro is NED, robot is NWU, see inversion below.
+  final AnalogGyroSim gyroSim = new AnalogGyroSim(m_gyro);
 
   final SwerveDriveKinematics m_kinematics = new SwerveDriveKinematics(
       m_frontLeftLocation, m_frontRightLocation, m_backLeftLocation, m_backRightLocation);
 
-  Pose2d robotPose = new Pose2d();
+  // Pose2d robotPose = new Pose2d();
   private double m_prevTimeSeconds = Timer.getFPGATimestamp();
   private final double m_nominalDtS = 0.02; // Seconds
 
@@ -94,6 +95,8 @@ public class Drivetrain extends SubsystemBase {
   StringPublisher fieldTypePub;
 
   List<CallbackStore> cbs = new ArrayList<CallbackStore>();
+
+  ChassisSpeeds speeds;
 
   public Drivetrain() {
     m_gyro.reset();
@@ -186,6 +189,13 @@ public class Drivetrain extends SubsystemBase {
             m_backRight.getPosition()
         });
 
+    Pose2d newEstimate = m_poseEstimator.getEstimatedPosition();
+    fieldPub.set(new double[] {
+        newEstimate.getX(),
+        newEstimate.getY(),
+        newEstimate.getRotation().getDegrees()
+    });
+
     // Also apply vision measurements. We use 0.3 seconds in the past as an example
     // -- on a real robot, this must be calculated based either on latency or
     // timestamps.
@@ -205,14 +215,19 @@ public class Drivetrain extends SubsystemBase {
   }
 
   public void simulationPeriodic() {
-    m_frontLeft.simulationPeriodic();
-    m_frontRight.simulationPeriodic();
-    m_backLeft.simulationPeriodic();
-    m_backRight.simulationPeriodic();
-
     double currentTimeSeconds = Timer.getFPGATimestamp();
     double dtS = m_prevTimeSeconds >= 0 ? currentTimeSeconds - m_prevTimeSeconds : m_nominalDtS;
     m_prevTimeSeconds = currentTimeSeconds;
+    simulationPeriodic(dtS);
+  }
+
+
+
+  public void simulationPeriodic(final double dtS) {
+    m_frontLeft.simulationPeriodic(dtS);
+    m_frontRight.simulationPeriodic(dtS);
+    m_backLeft.simulationPeriodic(dtS);
+    m_backRight.simulationPeriodic(dtS);
 
     // in simulation these should be the values we just set
     // in SwerveModule.simulationPeriodic(), so we don't need
@@ -224,29 +239,29 @@ public class Drivetrain extends SubsystemBase {
         m_backRight.getState()
     };
 
-    ChassisSpeeds speeds = m_kinematics.toChassisSpeeds(states);
+    // rotational velocity is correct here.
+    speeds = m_kinematics.toChassisSpeeds(states);
 
     // finally adjust the simulator gyro.
-    // note chassisSpeeds.omegaRadiansPerSecond is NED.
-    Pose2d newPose = new Pose2d(robotPose.getX() + speeds.vxMetersPerSecond * dtS,
-        robotPose.getY() + speeds.vyMetersPerSecond * dtS,
-        robotPose.getRotation().plus(new Rotation2d(-1.0 * speeds.omegaRadiansPerSecond * dtS)));
-    robotPose = newPose;
-    // note that the "angle" in a gyro is NED, but everything else (e.g robot pose) is NWU, so invert here.
-    gyroSim.setAngle(-1.0 * robotPose.getRotation().getRadians());
-
-    // cheat, tell the pose estimator to use this pose.
-    // doesn't seem to do much.
-    // m_poseEstimator.addVisionMeasurement(robotPose, Timer.getFPGATimestamp());
+    // the pose estimator figures out the X/Y part but it depends on the gyro.
+    // since omega is the same in both coordinate schemes, just use that.
+    double oldAngleDeg = gyroSim.getAngle();
+    double dThetaDeg = -1.0 * new Rotation2d(speeds.omegaRadiansPerSecond * dtS).getDegrees();
+    double newAngleDeg = oldAngleDeg + dThetaDeg;
+    // note that the "angle" in a gyro is NED, but everything else (e.g robot pose)
+    // is NWU, so invert here.
+    gyroSim.setAngle(newAngleDeg);
 
     xSpeedPubM_s.set(speeds.vxMetersPerSecond);
     ySpeedPubM_s.set(speeds.vyMetersPerSecond);
     thetaSpeedPubRad_s.set(-1.0 * speeds.omegaRadiansPerSecond);
+  }
 
-    fieldPub.set(new double[] {
-        newPose.getX(),
-        newPose.getY(),
-        newPose.getRotation().getDegrees()
-    });
+  public void close() {
+    m_frontLeft.close();
+    m_frontRight.close();
+    m_backLeft.close();
+    m_backRight.close();
+    m_gyro.close();
   }
 }
