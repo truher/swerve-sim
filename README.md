@@ -1,4 +1,4 @@
-<video src="https://github.com/truher/swerve-sim/raw/master/Robot%20Simulation%202022-12-17%2016-42-25.mp4"></video>
+<video src="https://github.com/truher/swerve-sim/blob/master/Robot%20Simulation%202022-12-17%2016-42-25.mp4?raw=true"></video>
 
 # Swerve Sim
 
