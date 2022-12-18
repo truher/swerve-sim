@@ -1,6 +1,6 @@
-<video src="https://github.com/truher/swerve-sim/blob/master/Robot%20Simulation%202022-12-17%2016-42-25.mp4?raw=true"></video>
-
 # Swerve Sim
+
+<video src="https://user-images.githubusercontent.com/113283/208272266-f540216a-5384-438a-8fc9-4e9412928481.mp4"></video>
 
 This is the simplest possible simulation of a swerve drive, using forward kinematics based on the feedforwards of each motor, with no
 attention to momentum, friction, etc. If you're interested in a more realistic approach, check out what Chris Gerth
