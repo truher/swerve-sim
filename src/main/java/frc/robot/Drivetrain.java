@@ -7,8 +7,6 @@ package frc.robot;
 import java.util.ArrayList;
 import java.util.List;
 
-import edu.wpi.first.math.Nat;
-import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -17,9 +15,6 @@ import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
-import edu.wpi.first.math.numbers.N5;
-import edu.wpi.first.math.numbers.N7;
-import edu.wpi.first.math.util.Units;
 import edu.wpi.first.networktables.DoubleArrayPublisher;
 import edu.wpi.first.networktables.DoublePublisher;
 import edu.wpi.first.networktables.NetworkTable;
@@ -64,10 +59,8 @@ public class Drivetrain extends SubsystemBase {
    * Here we use SwerveDrivePoseEstimator so that we can fuse odometry readings.
    * The numbers used below are robot specific, and should be tuned.
    */
-  private final SwerveDrivePoseEstimator<N7, N7, N5> m_poseEstimator = new SwerveDrivePoseEstimator<N7, N7, N5>(
-      Nat.N7(),
-      Nat.N7(),
-      Nat.N5(),
+  private final SwerveDrivePoseEstimator m_poseEstimator = new SwerveDrivePoseEstimator(
+      m_kinematics,
       m_gyro.getRotation2d(), // NWU
       new SwerveModulePosition[] {
           m_frontLeft.getPosition(),
@@ -75,11 +68,7 @@ public class Drivetrain extends SubsystemBase {
           m_backLeft.getPosition(),
           m_backRight.getPosition()
       },
-      new Pose2d(),
-      m_kinematics,
-      VecBuilder.fill(0.05, 0.05, Units.degreesToRadians(5), 0.05, 0.05, 0.05, 0.05),
-      VecBuilder.fill(Units.degreesToRadians(0.01), 0.01, 0.01, 0.01, 0.01),
-      VecBuilder.fill(0.05, 0.05, Units.degreesToRadians(3)));
+      new Pose2d());
 
   NetworkTableInstance inst = NetworkTableInstance.getDefault();
 
@@ -176,12 +165,6 @@ public class Drivetrain extends SubsystemBase {
 
     m_poseEstimator.update(
         m_gyro.getRotation2d(), // NWU
-        new SwerveModuleState[] {
-            m_frontLeft.getState(),
-            m_frontRight.getState(),
-            m_backLeft.getState(),
-            m_backRight.getState()
-        },
         new SwerveModulePosition[] {
             m_frontLeft.getPosition(),
             m_frontRight.getPosition(),
