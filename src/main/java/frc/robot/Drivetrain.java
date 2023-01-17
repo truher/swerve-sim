@@ -162,15 +162,6 @@ public class Drivetrain extends SubsystemBase {
 
   /** Updates the field relative position of the robot. */
   public void updateOdometry() {
-
-    System.out.println("gyro");
-    System.out.println(m_gyro.getRotation2d());
-    System.out.println("positions");
-    System.out.println(m_frontLeft.getPosition());
-    System.out.println(m_frontRight.getPosition());
-    System.out.println(m_backLeft.getPosition());
-    System.out.println(m_backRight.getPosition());
-
     m_poseEstimator.update(
         m_gyro.getRotation2d(), // NWU
         new SwerveModulePosition[] {
@@ -181,8 +172,6 @@ public class Drivetrain extends SubsystemBase {
         });
 
     Pose2d newEstimate = m_poseEstimator.getEstimatedPosition();
-    System.out.println("new estimate");
-    System.out.println(newEstimate);
     fieldPub.set(new double[] {
         newEstimate.getX(),
         newEstimate.getY(),
