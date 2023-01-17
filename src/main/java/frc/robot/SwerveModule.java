@@ -6,6 +6,7 @@ package frc.robot;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.controller.ProfiledPIDController;
@@ -85,9 +86,12 @@ public class SwerveModule {
   // desired position from input.
   private final DoublePublisher m_TurnPInPubRad;
 
+
   List<CallbackStore> cbs = new ArrayList<CallbackStore>();
   private double m_prevTimeSeconds = Timer.getFPGATimestamp();
   private final double m_nominalDtS = 0.02; // Seconds
+
+  private final Random random = new Random(); // for noise in the velocity
 
   /**
    * Constructs a SwerveModule with a drive motor, turning motor, drive encoder
@@ -119,6 +123,7 @@ public class SwerveModule {
     m_TurnVPubRad_s = m_table.getDoubleTopic("turnDesiredSpeedRad_s").publish();
     m_DriveVInPubM_s = m_table.getDoubleTopic("driveInputSpeedM_s").publish();
     m_TurnPInPubRad = m_table.getDoubleTopic("turnInputRad").publish();
+
 
     m_driveMotor = new PWMSparkMax(driveMotorChannel);
     m_DrivePWMSim = new PWMSim(m_driveMotor);
@@ -169,6 +174,7 @@ public class SwerveModule {
    */
   public double vFromOutput(double output, double ks, double kv) {
     double result = (output - ks * Math.signum(output)) / kv;
+    result += random.nextGaussian()*2;
     return result;
   }
 
