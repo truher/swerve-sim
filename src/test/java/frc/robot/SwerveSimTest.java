@@ -8,13 +8,14 @@ import org.junit.jupiter.api.Test;
 import edu.wpi.first.hal.HAL;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.kinematics.SwerveDriveOdometry;
+import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 
 public class SwerveSimTest {
 
     Drivetrain newDrivetrain() {
         Drivetrain m_swerve = new Drivetrain();
-        m_swerve.resetOdometry(new Pose2d());
         m_swerve.simulationInit();
         m_swerve.m_frontLeft.m_drivePIDController.reset();
         m_swerve.m_frontRight.m_drivePIDController.reset();
@@ -25,6 +26,8 @@ public class SwerveSimTest {
         m_swerve.m_frontRight.m_driveEncoder.reset();
         m_swerve.m_backLeft.m_driveEncoder.reset();
         m_swerve.m_backRight.m_driveEncoder.reset();
+        m_swerve.m_gyro.reset();
+        m_swerve.resetOdometry(new Pose2d()); // reset odometry *after* all the components are reset.
         return m_swerve;
     }
 
@@ -229,18 +232,17 @@ public class SwerveSimTest {
             // this is NWU, CCW+, so should be positive.
             assertEquals(3.087, m_swerve.speeds.omegaRadiansPerSecond, 0.001, "chassis speed omega");
             // look at the pose we're maintaining
-                     assertAll(
-                        () -> assertEquals(0, m_swerve.getPose().getX(), 0.001, "pose x"),
-                        () -> assertEquals(0, m_swerve.getPose().getY(), 0.001, "pose y"),
-                        () -> assertEquals(0.062, m_swerve.getPose().getRotation().getRadians(), 0.001, "pose rot"));
-    
+            assertAll(
+                    () -> assertEquals(0, m_swerve.getPose().getX(), 0.001, "pose x"),
+                    () -> assertEquals(0, m_swerve.getPose().getY(), 0.001, "pose y"),
+                    () -> assertEquals(0.062, m_swerve.getPose().getRotation().getRadians(), 0.001, "pose rot"));
+
             // look at the gyro, note NWU/NED difference, also one is rad the other deg
             assertAll(
                     () -> assertEquals(0.062, m_swerve.m_gyro.getRotation2d().getRadians(), 0.001, "gyro rotation"),
                     () -> assertEquals(-3.537, m_swerve.m_gyro.getAngle(), 0.001, "gyro angle"));
 
             final Pose2d finalPose = m_swerve.getPose();
-
             assertAll(
                     () -> assertEquals(0, finalPose.getX(), 0.001, "estimate x"),
                     () -> assertEquals(0, finalPose.getY(), 0.001, "estimate y"),
@@ -298,11 +300,33 @@ public class SwerveSimTest {
                     () -> assertEquals(0, m_swerve.m_gyro.getRotation2d().getRadians(), 0.001, "gyro rotation"),
                     () -> assertEquals(0, m_swerve.m_gyro.getAngle(), 0.001, "gyro angle"));
 
-            // force gyro to angled position, +pi/4 in NWU, so -90 deg in NED
+            // force gyro to angled position, +pi/2 in NWU, so -90 deg in NED
             m_swerve.gyroSim.setAngle(-90);
+
+            // need to reset the odometry with the actual robot pose since we rotated it.
+            m_swerve.resetOdometry(new Pose2d(0, 0, m_swerve.m_gyro.getRotation2d())); // pi/2
+
+            // pose should be rotated.
+            assertAll(
+                    () -> assertEquals(0, m_swerve.getPose().getX(), 0.001, "pose x"),
+                    () -> assertEquals(0, m_swerve.getPose().getY(), 0.001, "pose y"),
+                    () -> assertEquals(Math.PI / 2, m_swerve.getPose().getRotation().getRadians(), 0.001, "pose rot"));
+
+            // verify that the embedded odometry is doing the right thing by duplicating it
+            // here.
+            SwerveDriveOdometry m_odometry = new SwerveDriveOdometry(m_swerve.m_kinematics,
+                    new Rotation2d(Math.PI / 2), new SwerveModulePosition[] {
+                            m_swerve.m_frontLeft.getPosition(),
+                            m_swerve.m_frontRight.getPosition(),
+                            m_swerve.m_backLeft.getPosition(),
+                            m_swerve.m_backRight.getPosition()
+                    }, m_swerve.getPose());
+
             // verify placement
             assertAll(
                     () -> assertEquals(Math.PI / 2, m_swerve.m_gyro.getRotation2d().getRadians(), 0.001,
+                            // () -> assertEquals(Math.PI / 4, m_swerve.m_gyro.getRotation2d().getRadians(),
+                            // 0.001,
                             "gyro rotation"),
                     () -> assertEquals(-90, m_swerve.m_gyro.getAngle(), 0.001, "gyro angle"));
 
@@ -349,8 +373,26 @@ public class SwerveSimTest {
                     () -> assertEquals(0.251, m_swerve.m_frontRight.getDriveOutput(), 0.001, "FR output"),
                     () -> assertEquals(0.251, m_swerve.m_backLeft.getDriveOutput(), 0.001, "BL output"),
                     () -> assertEquals(0.251, m_swerve.m_backRight.getDriveOutput(), 0.001, "BR output"));
+            assertAll( // no steering output
+                    () -> assertEquals(0, m_swerve.m_frontLeft.getTurnOutput(), 0.001, "FL turn utput"),
+                    () -> assertEquals(0, m_swerve.m_frontRight.getTurnOutput(), 0.001, "FR turn output"),
+                    () -> assertEquals(0, m_swerve.m_backLeft.getTurnOutput(), 0.001, "BL turn output"),
+                    () -> assertEquals(0, m_swerve.m_backRight.getTurnOutput(), 0.001, "BR turn output"));
             m_swerve.simulationPeriodic(0.02);
             m_swerve.updateOdometry();
+
+            m_odometry.update(m_swerve.m_gyro.getRotation2d(), new SwerveModulePosition[] {
+                    m_swerve.m_frontLeft.getPosition(),
+                    m_swerve.m_frontRight.getPosition(),
+                    m_swerve.m_backLeft.getPosition(),
+                    m_swerve.m_backRight.getPosition()
+            });
+
+            Pose2d odoPose = m_odometry.getPoseMeters();
+            assertAll(
+                    () -> assertEquals(0, odoPose.getX(), 0.001, "x odo pose"),
+                    () -> assertEquals(0.033, odoPose.getY(), 0.001, "y odo pose"),
+                    () -> assertEquals(Math.PI / 2, odoPose.getRotation().getRadians(), 0.001, "theta odo pose"));
 
             // each wheel should have moved the same as the displacement case above
             assertAll(
@@ -362,29 +404,30 @@ public class SwerveSimTest {
                     () -> assertEquals(0.033, m_swerve.m_backRight.getPosition().distanceMeters, 0.001,
                             "BR m"));
 
-            // chassis moving in x
+            // chassis moving in x (ahead), note this isn't field relative, it's chassis
+            // relative.
             assertEquals(1.667, m_swerve.speeds.vxMetersPerSecond, 0.001, "chassis speed x");
             assertEquals(0, m_swerve.speeds.vyMetersPerSecond, 0.001, "chassis speed y");
             assertEquals(0, m_swerve.speeds.omegaRadiansPerSecond, 0.001, "chassis speed omega");
 
             // pose shows movement in y, also remember rotation PI/2
+            assertAll(
+                    () -> assertEquals(0, m_swerve.getPose().getX(), 0.001, "pose x"),
+                    () -> assertEquals(0.033, m_swerve.getPose().getY(), 0.001, "pose y"), // <= broken?
+                    () -> assertEquals(Math.PI / 2, m_swerve.getPose().getRotation().getRadians(), 0.001, "pose rot"));
 
-                    assertAll(
-                        () -> assertEquals(0, m_swerve.getPose().getX(), 0.001, "pose x"),
-                        () -> assertEquals(0.033, m_swerve.getPose().getY(), 0.001, "pose y"),
-                        () -> assertEquals(Math.PI/2, m_swerve.getPose().getRotation().getRadians(), 0.001, "pose rot"));
-    
             // same rotation
             assertAll(
-                    () -> assertEquals(Math.PI/2, m_swerve.m_gyro.getRotation2d().getRadians(), 0.001, "gyro rotation"),
+                    () -> assertEquals(Math.PI / 2, m_swerve.m_gyro.getRotation2d().getRadians(), 0.001,
+                            "gyro rotation"),
                     () -> assertEquals(-90, m_swerve.m_gyro.getAngle(), 0.001, "gyro angle"));
 
             final Pose2d finalPose = m_swerve.getPose();
 
             assertAll(
                     () -> assertEquals(0, finalPose.getX(), 0.001, "estimate x"),
-                    () -> assertEquals(0.033, finalPose.getY(), 0.001, "estimate y"),
-                    () -> assertEquals(Math.PI/2, finalPose.getRotation().getRadians(), 0.001, "estimate rot"));
+                    () -> assertEquals(0.033, finalPose.getY(), 0.001, "estimate y"), // <= broken?
+                    () -> assertEquals(Math.PI / 2, finalPose.getRotation().getRadians(), 0.001, "estimate rot"));
         } finally {
             m_swerve.close(); // release the HAL stuff
         }

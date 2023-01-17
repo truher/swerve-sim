@@ -26,5 +26,7 @@
     },
   ],
   "java.test.defaultConfig": "WPIlibUnitTests",
-  "editor.minimap.enabled": false
+  "editor.minimap.enabled": false,
+  "java.inlayHints.parameterNames.enabled": "none",
+  "editor.detectIndentation": false
 }
