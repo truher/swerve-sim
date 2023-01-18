@@ -14,15 +14,6 @@
   },
   "NetworkTables": {
     "transitory": {
-      "LiveWindow": {
-        "open": true
-      },
-      "SmartDashboard": {
-        "open": true,
-        "rotation controller": {
-          "open": true
-        }
-      },
       "robot": {
         "open": true
       }
@@ -37,7 +28,7 @@
               "autoFit": true
             }
           ],
-          "height": 102,
+          "height": 128,
           "series": [
             {
               "color": [
@@ -47,6 +38,15 @@
                 1.0
               ],
               "id": "NT:/robot/xError"
+            },
+            {
+              "color": [
+                0.8666667342185974,
+                0.5176470875740051,
+                0.32156863808631897,
+                1.0
+              ],
+              "id": "NT:/robot/yError"
             }
           ]
         }

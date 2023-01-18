@@ -38,25 +38,6 @@ public class Robot extends TimedRobot {
     private final SlewRateLimiter m_yspeedLimiter = new SlewRateLimiter(3);
     private final SlewRateLimiter m_rotLimiter = new SlewRateLimiter(3);
 
-    @Override
-    public void autonomousPeriodic() {
-        // driveWithJoystick(false);
-        // m_swerve.updateOdometry();
-
-        // System.out.printf("scheduled %s\n", autoc.isScheduled()?"yes":"no");
-
-        m_rotationPositionError.set(m_rotationController.getPositionError());
-        m_rotationVelocityError.set(m_rotationController.getVelocityError());
-        m_rotationSetpointPosition.set(m_rotationController.getSetpoint().position);
-        m_rotationSetpointVelocity.set(m_rotationController.getSetpoint().velocity);
-
-        // observe the controllers
-
-        m_XErrorPub.set(xController.getPositionError());
-        m_YErrorPub.set(yController.getPositionError());
-
-    }
-
     Command autoc;
     ProfiledPIDController m_rotationController;
     PIDController xController;
@@ -76,10 +57,30 @@ public class Robot extends TimedRobot {
     private final DoublePublisher m_XErrorPub = m_table.getDoubleTopic("xError").publish();
     private final DoublePublisher m_YErrorPub = m_table.getDoubleTopic("yError").publish();
 
+    @Override
     public void autonomousInit() {
         // autoc = auto();
         autoc = circle();
         autoc.schedule();
+    }
+
+    @Override
+    public void autonomousPeriodic() {
+        // driveWithJoystick(false);
+        // m_swerve.updateOdometry();
+
+        // System.out.printf("scheduled %s\n", autoc.isScheduled()?"yes":"no");
+
+        m_rotationPositionError.set(m_rotationController.getPositionError());
+        m_rotationVelocityError.set(m_rotationController.getVelocityError());
+        m_rotationSetpointPosition.set(m_rotationController.getSetpoint().position);
+        m_rotationSetpointVelocity.set(m_rotationController.getSetpoint().velocity);
+
+        // observe the controllers
+
+        m_XErrorPub.set(xController.getPositionError());
+        m_YErrorPub.set(yController.getPositionError());
+
     }
 
     public void autonomousExit() {
@@ -110,11 +111,17 @@ public class Robot extends TimedRobot {
                         new Translation2d(8, 2)),
                 new Pose2d(6, 4, new Rotation2d(Math.PI / 2)), // end +y
                 translationConfig);
-        xController = new PIDController(1.5, 0, 0);
-        yController = new PIDController(1.5, 0, 0);
+        // OK go a little crazy with the PID
+        // xController = new PIDController(1.5, 0, 0);
+        // yController = new PIDController(1.5, 0, 0);
+        xController = new PIDController(5, 0, 0);
+        yController = new PIDController(5, 0, 0);
+
         TrapezoidProfile.Constraints rotationConstraints = new TrapezoidProfile.Constraints(
                 Drivetrain.kMaxAngularSpeed / 2, Drivetrain.kMaxAngularSpeed / 2);
-        m_rotationController = new ProfiledPIDController(1.5, 0, 0, rotationConstraints);
+        // OK go a little crazy with the PID
+        // m_rotationController = new ProfiledPIDController(1.5, 0, 0, rotationConstraints);
+        m_rotationController = new ProfiledPIDController(5, 0, 0, rotationConstraints);
         SmartDashboard.putData("rotation controller", m_rotationController);
 
         SwerveControllerCommand swerveControllerCommand0 = new SwerveControllerCommand(target0,
